@@ -1,0 +1,123 @@
+Objects serialization
+
+The serialization is conversion of data structure from internal representation into sequence of bytes 
+and deserialization is opposite to it: conversion of bytes sequence into in-memory structure.
+
+The task of objects serialization/deserialization is important part of application. It is used whenever 
+objects should be transferred between modules that do not share memory (e.g. to persist, import, export, etc.).
+Some applications are built around serialization (e.g. web services).
+
+Various serialization formats are used, from proprietary to open, with different restrictions, extensions, 
+variants. E.g. java objects serialization provides seamless mechanism of storing complex objects but its 
+result cannot be used by non-java applications or even by different version of java application 
+(e.g. if object’s class was seriously modified). On the other hand there’s JSON format that can be used 
+practically on any platform but it is applicable to relatively simple structures and supports limited 
+set of data types.
+
+When choosing format several criteria are taken into account. But often this choice is inevitable and it 
+results in restrictions to data that can be serialized. 
+
+Minimal requirements to serialization format are expressed for JSON: it supports lists, 
+maps (collection of name-value pairs), scalars (string, number, boolean, null). It is missing native 
+binary data support, but that is fixed by applying Base64 encoding and passing those data as strings. 
+So JSON is “lossy” format that needs some context to correctly recover data. It is quite easy to compose and 
+to parse. It is relatively compact (compared to XML), but there’s room for improvements, and one of them 
+is BJSON. That is binary encoding of same structures that simplifies parsing while adding some efforts on 
+encoding. The result is more compact and its parsing is more simple and faster. Also it does not limit maps 
+to be name-value, but extends it to allow value-value.
+
+There’s one problem with JSON and its most visible descendants: they do not support resolution of cyclic 
+references and/or duplicates, i.e. already serialized items have to be re-serialized if appear again and 
+there’s no mechanism how to avoid cyclic references without loss of information about them.
+
+It would be convenient to effectively support multiple standard formats at minimal effort as well as extend 
+range of serializable data structures.
+
+The proposed Java project represents solution for overriding limitations of JSON-like formats as well as set 
+of tools to diversify serialization formats and analyze results. It is based on the following principles:
+•	Usability: serialization is applicable to generally used byte sequencers: 
+	streams (and URLs as stream-oriented resources), strings, bytes. So minimal serializer must 
+	directly support all these exchange forms.
+•	Extensibility: solution should expose a variety of extension mechanisms (e.g callbacks, contexts, 
+	listeners, etc.) to enable clear and straight-forward ways of modifying behavior and data handling. 
+	Special extension to be supported is references: adding to serialized form references to already 
+	serialized content and recover those on deserialization. Use of options to control the key 
+	algorithmic and structural decisions trying to define them on most generic level.
+•	Compatibility: serializers should conform underlying standards.
+•	Performance: compare (and optimize) solution with respect to competing  ones (like Jackson, 
+	Gson etc.)
+•	Thread safety
+
+Serialization assumes execution of limited set of tasks which can be generalized and format-specifics tasks 
+that may be concentrated to relatively small portions of code: linearization, encoding, decoding, 
+structurization. The linearization-structurization and encoding-decoding are complementary pairs where 
+the former is structure transformation and the latter – stream bytes transformation.
+
+So base decisions are expressed in set of interfaces:
+•	Serialize – methods to produce serialized data
+•	Deserialize – methods to recover data from serialized form
+•	Serializer – complementary solution (serialize + deserialize)
+•	StreamSerializer – stream conversions
+•	ObjectSerializer – object conversions (with linearization – “simplify”, and structurization – “enrich” 
+	methods)
+
+Experimental implementations for Base64 and UTF-8 encodings implement StreamSerializer 
+while JSON/BJSON – ObjectSerializer. Reason for implementation of Base64/UTF-8 – to test performance 
+provided by platform solutions while also support more platform tolerance (e.g. Java and Adnroid’s 
+java once (and may be still) had different Base64 solutions).
+
+The base re-usable tasks to solve (cyclic references and duplicates detection/handling, object structure 
+access/recovery, and text indentation) are grouped into “tools” package.
+
+Support for structures comparison, visualization, and simulation is provided via set of classes in “utils” 
+package. It also contains classes to invoke and “measure” various implementations of serializations based on 
+class and method names (RW and Stat classes). Special “TestPOJO” class provides sample classes and random 
+generator of structure values to cover most of serialization cases. It is moved from tests scope to library 
+scope due to possible re-usability in a range of projects.
+
+BaseSerializer, BaseObjectSerializer, and BaseStreamSerializer provide reference ABSTRACT implementations for 
+related interfaces with minimal methods to implement for actual format and providing generic base logic.
+
+Base object serializer idea is to provide initial data structure decomposition into set of supported elements 
+and invoke actual implementation’s writers to produce output sequence. 
+
+The process is executed within context that can provide identification of duplicates, their indexing for 
+references generation and generic linearization/structurization logic. References are supposed to be 
+count-based in the order of potentially referable items so on recover they may be resolved 
+(this applies restriction to sequence manipulation: it cannot be modified since changing items order 
+may result in invalid references). If references are not handled (e.g. in compatibility mode with base 
+standard) then no special restrictions on data transformations are applied. On deserialization 
+the referable items are indexed and once reference is detected, the already loaded/created item instance 
+if used as result.
+
+Full serialization/deserialization cycle contains the following data conversions:
+1.	Object -> set of simple objects (list/array, map/POJO adapter, scalar values
+2.	Simple objects -> sequence of bytes/chars (with references indexing)
+3.	Bytes/chars -> simple objects (with references indexing/resolution)
+4.	Simple objects -> original object structure (with references re-resolution)
+
+Conversion from/into simple objects is based on java reflection (simulating POJO). The referable items are by 
+default any structure (list, map, POJO). But they may be extended to selected scalars, e.g. if string values 
+are expected to be big and repeatable, it might save both space and time to use references. Same may be 
+applied e.g. to BigInteger or BigDecimal, which are logically scalar values, but may be referenced to 
+optimize those size/time. 
+
+Interface serializer methods are used as entry points. Actual methods are built around object serializer 
+context that provides common environment and adjustable logic. The creation of context is in hands of 
+serializer implementation so it is easy to adjust basic environment, while it provides common logic for 
+objects classification, linearization, and structurization. 
+
+References support is toggled via “resolveCyclicReferences” property. If not – standard behavior, otherwise 
+the references extensions are in use enabling generation of references in serialized form and their recovery.
+
+Some words on structurization. This process requires target type to construct from given simple structure. 
+The target type is reflected and built using property names and values from simple structures. Due to 
+general loss of value info in JSON-like formats this process requires various type conversions (type casts), 
+in simple cases it may be collection to arrays (or vice versa) and integer to double. In more complex cases 
+it may be conversion of byte array into BigInteger, long to Date etc. To provide flexibility in this area, 
+there’re ClassCast/ClassCaster classes that can be used to automate class to class object conversions. 
+Depending on JSON variant (original (text) or BJSON) different sets of type cast are needed, so this info is 
+pre-configurable per implementation though may be modified on implementation (object serializer) or 
+conversion (serializer context) level.
+
+TBC.
