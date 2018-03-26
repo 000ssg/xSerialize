@@ -5,6 +5,9 @@
  */
 package ssg.serialize.impl;
 
+import ssg.serialize.base.BaseScanHandler;
+import ssg.serialize.base.BaseObjectSerializer;
+import ssg.serialize.base.ObjectSerializerContext;
 import ssg.serialize.tools.BER;
 import java.io.File;
 import java.io.IOException;

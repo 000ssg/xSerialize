@@ -17,7 +17,7 @@ import ssg.serialize.utils.Dump;
 
 /**
  *
- * @author sesidoro
+ * @author 000ssg
  */
 public class FunctionalASN1 {
 

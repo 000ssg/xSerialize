@@ -302,10 +302,10 @@ public class JSONSerializerTest {
             bjson2.setResolveCyclicReferences(true);
             //bjson.DEBUG=true;
             //bjson2.DEBUG=true;
-            bjson2.decycleFlags
-                    = JSONSerializer.DF_STRING
+            bjson2.setDecycleFlags(
+                    JSONSerializer.DF_STRING
                     | JSONSerializer.DF_BIGDEC
-                    | JSONSerializer.DF_BIGINT;
+                    | JSONSerializer.DF_BIGINT);
 
             byte[] data = null;
             byte[] data2 = null;
@@ -396,10 +396,10 @@ public class JSONSerializerTest {
         bjson2.setResolveCyclicReferences(true);
         //bjson.DEBUG=true;
         //bjson2.DEBUG=true;
-        bjson2.decycleFlags
-                = JSONSerializer.DF_STRING
+        bjson2.setDecycleFlags(
+                JSONSerializer.DF_STRING
                 | JSONSerializer.DF_BIGDEC
-                | JSONSerializer.DF_BIGINT;
+                | JSONSerializer.DF_BIGINT);
         byte[] data = Common.load(new File("./target/JST_1.json"));
         byte[] data2 = Common.load(new File("./target/JST_2.json"));
         if (data != null) {
@@ -420,10 +420,10 @@ public class JSONSerializerTest {
             JOSStat stat = new JOSStat();
             OSScanHandler<String, Integer> sh = new JSONScanHandler();
             bjson.scan(sh, stat, new ByteArrayInputStream(data));
-            float t = (stat.completed - stat.started) / 1000000f;
+            float t = (stat.getCompleted() - stat.getStarted()) / 1000000f;
             Map m = sh.root();
             bjson2.scan(sh, stat, new ByteArrayInputStream(data2));
-            float t1 = (stat.completed - stat.started) / 1000000f;
+            float t1 = (stat.getCompleted() - stat.getStarted()) / 1000000f;
             Map m2 = sh.root();
 
             DeepCompare.DC dc0_01 = DeepCompare.diff(m0, m01);

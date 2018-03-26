@@ -3,6 +3,7 @@
  */
 package ssg.serialize.impl;
 
+import ssg.serialize.base.ObjectSerializerContext;
 import ssg.serialize.utils.Stat;
 import ssg.serialize.utils.TestPOJO;
 import ssg.serialize.utils.TestPOJO.TestPOJO1;

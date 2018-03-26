@@ -1,7 +1,7 @@
 /*
  * AS IS
  */
-package ssg.serialize.impl;
+package ssg.serialize.base;
 
 import ssg.serialize.Serializer;
 import java.io.ByteArrayInputStream;
@@ -22,7 +22,7 @@ import java.net.URLConnection;
 public abstract class BaseSerializer implements Serializer {
 
     // string to/from bytes default encoding
-    String encoding = "UTF-8";
+    protected String encoding = "UTF-8";
 
     public BaseSerializer() {
     }
@@ -31,7 +31,7 @@ public abstract class BaseSerializer implements Serializer {
     public String toText(Object obj) throws IOException {
         byte[] buf = toBytes(obj);
         if (buf != null) {
-            return new String(buf, encoding);
+            return new String(buf, getEncoding());
         } else {
             return null;
         }
@@ -68,7 +68,7 @@ public abstract class BaseSerializer implements Serializer {
     @Override
     public Object fromText(String text) throws IOException {
         if (text != null) {
-            return fromBytes(text.getBytes(encoding));
+            return fromBytes(text.getBytes(getEncoding()));
         } else {
             return null;
         }
@@ -116,6 +116,20 @@ public abstract class BaseSerializer implements Serializer {
             c += c1;
         }
         return c;
+    }
+
+    /**
+     * @return the encoding
+     */
+    public String getEncoding() {
+        return encoding;
+    }
+
+    /**
+     * @param encoding the encoding to set
+     */
+    public void setEncoding(String encoding) {
+        this.encoding = encoding;
     }
 
     

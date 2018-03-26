@@ -3,6 +3,7 @@
  */
 package ssg.serialize.impl;
 
+import ssg.serialize.base.ObjectSerializerContext;
 import ssg.serialize.ObjectSerializer.OSStat;
 import ssg.serialize.utils.DeepCompare;
 import ssg.serialize.utils.TestPOJO;
@@ -77,10 +78,10 @@ public class ProfileBJSON {
                 //System.out.println(info+"\n  "+ctx.decyclerv.dumpRegistered(wr, false,true).replace("\n", "\n  "));
             }
         };
-        bjson2.decycleFlags
-                = BJSONSerializer.DF_STRING
+        bjson2.setDecycleFlags(
+                BJSONSerializer.DF_STRING
                 | BJSONSerializer.DF_BIGDEC
-                | BJSONSerializer.DF_BIGINT;
+                | BJSONSerializer.DF_BIGINT);
         byte[] data = null;
         byte[] data2 = null;
         long dur = 0;

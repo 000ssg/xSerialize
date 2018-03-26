@@ -1,14 +1,14 @@
 /*
  * AS IS
  */
-package ssg.serialize.impl;
+package ssg.serialize.base;
 
 import ssg.serialize.ObjectSerializer;
-import static ssg.serialize.impl.BaseObjectSerializer.DF_BIGDEC;
-import static ssg.serialize.impl.BaseObjectSerializer.DF_BIGINT;
-import static ssg.serialize.impl.BaseObjectSerializer.DF_DEFAULT;
-import static ssg.serialize.impl.BaseObjectSerializer.DF_EXTENSIONS;
-import static ssg.serialize.impl.BaseObjectSerializer.DF_STRING;
+import static ssg.serialize.base.BaseObjectSerializer.DF_BIGDEC;
+import static ssg.serialize.base.BaseObjectSerializer.DF_BIGINT;
+import static ssg.serialize.base.BaseObjectSerializer.DF_DEFAULT;
+import static ssg.serialize.base.BaseObjectSerializer.DF_EXTENSIONS;
+import static ssg.serialize.base.BaseObjectSerializer.DF_STRING;
 import ssg.serialize.tools.Decycle;
 import ssg.serialize.tools.Reflector;
 import java.io.IOException;
@@ -45,7 +45,7 @@ public class ObjectSerializerContext {
     // flag to enable cyclic references resolution
     boolean resolveCyclicReferences = true;
     // decycling options
-    int decycleFlags = DF_DEFAULT;
+    protected int decycleFlags = DF_DEFAULT;
     protected DecyclerListener decyclerListener;
     // optional class casting
     protected ClassCaster classCaster;
@@ -58,7 +58,7 @@ public class ObjectSerializerContext {
             setResolveCyclicReferences(serializer.isResolveCyclicReferences());
         }
         if (serializer instanceof BaseObjectSerializer) {
-            decycleFlags = ((BaseObjectSerializer) serializer).decycleFlags;
+            decycleFlags = ((BaseObjectSerializer) serializer).getDecycleFlags();
         }
         if (isResolveCyclicReferences()) {
             decycler(true);
@@ -257,12 +257,12 @@ public class ObjectSerializerContext {
     }
 
     public Decycler createDecycler() {
-        if ((decycleFlags & DF_EXTENSIONS) != 0) {
+        if ((getDecycleFlags() & DF_EXTENSIONS) != 0) {
             return new Decycler() {
                 long xx = 10000000000L;
-                boolean decycleStrings = (decycleFlags & DF_STRING) != 0;
-                boolean decycleBI = (decycleFlags & DF_BIGINT) != 0;
-                boolean decycleBD = (decycleFlags & DF_BIGDEC) != 0;
+                boolean decycleStrings = (getDecycleFlags() & DF_STRING) != 0;
+                boolean decycleBI = (getDecycleFlags() & DF_BIGINT) != 0;
+                boolean decycleBD = (getDecycleFlags() & DF_BIGDEC) != 0;
 
                 @Override
                 public boolean forceDecycle(Object obj) {
@@ -369,6 +369,20 @@ public class ObjectSerializerContext {
      */
     public void setDecyclerListener(DecyclerListener decyclerListener) {
         this.decyclerListener = decyclerListener;
+    }
+
+    /**
+     * @return the decycleFlags
+     */
+    public int getDecycleFlags() {
+        return decycleFlags;
+    }
+
+    /**
+     * @param decycleFlags the decycleFlags to set
+     */
+    public void setDecycleFlags(int decycleFlags) {
+        this.decycleFlags = decycleFlags;
     }
 
     /**

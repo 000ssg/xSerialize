@@ -1,7 +1,7 @@
 /*
  * AS IS
  */
-package ssg.serialize.impl;
+package ssg.serialize.base;
 
 import ssg.serialize.ObjectSerializer.OSScanHandler;
 import ssg.serialize.tools.Decycle.DecycledList;

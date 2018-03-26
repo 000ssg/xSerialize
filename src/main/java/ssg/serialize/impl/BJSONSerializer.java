@@ -3,7 +3,10 @@
  */
 package ssg.serialize.impl;
 
-import static ssg.serialize.impl.BaseObjectSerializer.DF_STRING;
+import ssg.serialize.base.BaseScanHandler;
+import ssg.serialize.base.BaseObjectSerializer;
+import ssg.serialize.base.ObjectSerializerContext;
+import static ssg.serialize.base.BaseObjectSerializer.DF_STRING;
 import ssg.serialize.tools.Decycle;
 import ssg.serialize.tools.Reflector;
 import java.io.IOException;
@@ -154,7 +157,7 @@ public class BJSONSerializer extends BaseObjectSerializer {
             if (obj instanceof Collection) {
                 Collection m = (Collection) obj;
                 int ms = m.size();
-                if ((decycleFlags & DF_IGNORE_COLLECTION_NULLS) != 0) {
+                if ((getDecycleFlags() & DF_IGNORE_COLLECTION_NULLS) != 0) {
                     for (Object o : m) {
                         if (o == null) {
                             ms--;
@@ -179,7 +182,7 @@ public class BJSONSerializer extends BaseObjectSerializer {
                     c += 8;
                 }
 
-                if ((decycleFlags & DF_IGNORE_COLLECTION_NULLS) != 0) {
+                if ((getDecycleFlags() & DF_IGNORE_COLLECTION_NULLS) != 0) {
                     for (Object val : m) {
                         if (val == null) {
                             continue;
@@ -193,7 +196,7 @@ public class BJSONSerializer extends BaseObjectSerializer {
                 }
             } else if (obj != null && obj.getClass().isArray()) {
                 int ms = Array.getLength(obj);
-                if ((decycleFlags & DF_IGNORE_COLLECTION_NULLS) != 0 && !obj.getClass().getComponentType().isPrimitive()) {
+                if ((getDecycleFlags() & DF_IGNORE_COLLECTION_NULLS) != 0 && !obj.getClass().getComponentType().isPrimitive()) {
                     for (int i = 0; i < ms; i++) {
                         if (Array.get(obj, i) == null) {
                             ms--;
@@ -262,7 +265,7 @@ public class BJSONSerializer extends BaseObjectSerializer {
 //                    for (Object o : (Object[]) obj) {
 //                        c += writeNum((Number) o, os, ctx);
 //                    }
-                } else if ((decycleFlags & DF_IGNORE_COLLECTION_NULLS) != 0 && !obj.getClass().getComponentType().isPrimitive()) {
+                } else if ((getDecycleFlags() & DF_IGNORE_COLLECTION_NULLS) != 0 && !obj.getClass().getComponentType().isPrimitive()) {
                     for (Object o : (Object[]) obj) {
                         if (o == null) {
                             continue;
@@ -291,7 +294,7 @@ public class BJSONSerializer extends BaseObjectSerializer {
         Map m = (Map) obj;
         int ms = m.size();
 
-        if ((decycleFlags & DF_IGNORE_MAP_NULLS) != 0) {
+        if ((getDecycleFlags() & DF_IGNORE_MAP_NULLS) != 0) {
             for (Object o : m.values()) {
                 if (o == null) {
                     ms--;
@@ -317,7 +320,7 @@ public class BJSONSerializer extends BaseObjectSerializer {
             c += 8;
         }
 
-        if ((decycleFlags & DF_IGNORE_MAP_NULLS) != 0) {
+        if ((getDecycleFlags() & DF_IGNORE_MAP_NULLS) != 0) {
             for (Object key : m.keySet()) {
                 Object val = m.get(key);
                 if (val == null) {
@@ -341,7 +344,7 @@ public class BJSONSerializer extends BaseObjectSerializer {
         long c = 1;
         int ms = rf.size();
 
-        if ((decycleFlags & DF_IGNORE_MAP_NULLS) != 0) {
+        if ((getDecycleFlags() & DF_IGNORE_MAP_NULLS) != 0) {
             for (Object key : rf.keySet()) {
                 if (rf.get(obj, key) == null) {
                     ms--;
@@ -367,7 +370,7 @@ public class BJSONSerializer extends BaseObjectSerializer {
             c += 8;
         }
 
-        if ((decycleFlags & DF_IGNORE_MAP_NULLS) != 0) {
+        if ((getDecycleFlags() & DF_IGNORE_MAP_NULLS) != 0) {
             for (Object key : rf.keySet()) {
                 Object val = rf.get(obj, key);
                 if (val == null) {
@@ -488,7 +491,7 @@ public class BJSONSerializer extends BaseObjectSerializer {
                 case T_STR64: {
                     byte[] buf = new byte[(int) len];
                     readFull(buf, buf.length, is);
-                    if ((decycleFlags & DF_STRING) != 0) {
+                    if ((getDecycleFlags() & DF_STRING) != 0) {
                         String s = new String(buf, "UTF-8");
                         String s1 = ctx.resolveRef(s, null);
                         return (s1 != null) ? s1 : s;
@@ -564,10 +567,10 @@ public class BJSONSerializer extends BaseObjectSerializer {
     public OSStat scan(OSScanHandler handler, OSStat stat, InputStream is) throws IOException {
         if (stat == null) {
             stat = new BJSONStat();
-            ((BOSStat) stat).ctx = createContext(is);
+            ((BOSStat) stat).setSerializerContext(createContext(is));
         } else if (stat instanceof BOSStat) {
-            if (((BOSStat) stat).ctx == null) {
-                ((BOSStat) stat).ctx = createContext(is);
+            if (((BOSStat) stat).getSerializerContext() == null) {
+                ((BOSStat) stat).setSerializerContext(createContext(is));
             }
         }
 
@@ -753,7 +756,7 @@ public class BJSONSerializer extends BaseObjectSerializer {
                     if (handler != null) {
                         byte[] buf = new byte[(int) len];
                         readFull(buf, buf.length, is);
-                        handler.onScalar((byte) c, new String(buf, encoding), (decycleFlags & DF_STRING) != 0);
+                        handler.onScalar((byte) c, new String(buf, getEncoding()), (getDecycleFlags() & DF_STRING) != 0);
                     } else {
                         is.skip(len);
                     }
@@ -1008,7 +1011,7 @@ public class BJSONSerializer extends BaseObjectSerializer {
                 case T_STR16:
                 case T_STR32:
                 case T_STR64: {
-                    if ((ctx.decycleFlags & DF_STRING) != 0) {
+                    if ((ctx.getDecycleFlags() & DF_STRING) != 0) {
                         return true;
                     } else {
                         return false;
@@ -1082,7 +1085,7 @@ public class BJSONSerializer extends BaseObjectSerializer {
 
         @Override
         public Byte refType(Integer ref) {
-            return (ref < refTypes.size()) ? refTypes.get(ref) : null;
+            return (ref < getRefTypes().size()) ? getRefTypes().get(ref) : null;
         }
     }
 

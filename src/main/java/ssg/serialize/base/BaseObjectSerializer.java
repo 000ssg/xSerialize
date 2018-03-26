@@ -1,7 +1,7 @@
 /*
  * AS IS
  */
-package ssg.serialize.impl;
+package ssg.serialize.base;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,7 +39,7 @@ public abstract class BaseObjectSerializer extends BaseSerializer implements Obj
     // flag to enable cyclic references resolution
     boolean resolveCyclicReferences = true;
     // decycling options
-    int decycleFlags = DF_DEFAULT;
+    protected int decycleFlags = DF_DEFAULT;
     // optional class casting
     protected ClassCaster classCaster;
 
@@ -113,7 +113,7 @@ public abstract class BaseObjectSerializer extends BaseSerializer implements Obj
         if (obj == null) {
             c += writeNull(os, ctx);
         } else if (ctx.isScalar(obj)) {
-            Long ref = ((decycleFlags & DF_EXTENSIONS) != 0) ? ctx.checkRef(obj) : null;
+            Long ref = ((getDecycleFlags() & DF_EXTENSIONS) != 0) ? ctx.checkRef(obj) : null;
             if (ref != null) {
                 c += writeRef(obj, ref, os, ctx);
             } else {
@@ -352,15 +352,29 @@ public abstract class BaseObjectSerializer extends BaseSerializer implements Obj
         this.classCaster = classCaster;
     }
 
+    /**
+     * @return the decycleFlags
+     */
+    public int getDecycleFlags() {
+        return decycleFlags;
+    }
+
+    /**
+     * @param decycleFlags the decycleFlags to set
+     */
+    public void setDecycleFlags(int decycleFlags) {
+        this.decycleFlags = decycleFlags;
+    }
+
     public static abstract class BOSStat<T, R extends Number> implements OSStat<T, R> {
 
         Map<T, int[]> types = new LinkedHashMap<T, int[]>();
         Map<R, int[]> refs = new LinkedHashMap<R, int[]>();
-        List<T> refTypes = new ArrayList<T>();
-        long started = System.nanoTime();
-        long completed = started;
-        long pos;
-        ObjectSerializerContext ctx;
+        protected List<T> refTypes = new ArrayList<T>();
+        protected long started = System.nanoTime();
+        protected long completed = getStarted();
+        protected long pos;
+        protected ObjectSerializerContext ctx;
 
         @Override
         public long pos() {
@@ -381,8 +395,8 @@ public abstract class BaseObjectSerializer extends BaseSerializer implements Obj
             }
             ii[0]++;
             completed = System.nanoTime();
-            if (isRefType(type, ctx)) {
-                refTypes.add(type);
+            if (isRefType(type, getSerializerContext())) {
+                getRefTypes().add(type);
             }
         }
 
@@ -408,7 +422,7 @@ public abstract class BaseObjectSerializer extends BaseSerializer implements Obj
         @Override
         public String toString() {
             StringBuilder sb = new StringBuilder();
-            sb.append(getClass().getSimpleName() + "{" + "types=" + types.size() + ", refs=" + refs.size() + ", evaluated in " + (completed - started) / 1000000f + "ms.");
+            sb.append(getClass().getSimpleName() + "{" + "types=" + types.size() + ", refs=" + refs.size() + ", evaluated in " + (getCompleted() - getStarted()) / 1000000f + "ms.");
             if (!types.isEmpty() || !refs.isEmpty()) {
                 int tcount = 0;
                 int rcount = 0;
@@ -441,6 +455,41 @@ public abstract class BaseObjectSerializer extends BaseSerializer implements Obj
             }
             sb.append('}');
             return sb.toString();
+        }
+
+        /**
+         * @return the started
+         */
+        public long getStarted() {
+            return started;
+        }
+
+        /**
+         * @return the completed
+         */
+        public long getCompleted() {
+            return completed;
+        }
+
+        /**
+         * @return the refTypes
+         */
+        public List<T> getRefTypes() {
+            return refTypes;
+        }
+
+        /**
+         * @return the ctx
+         */
+        public ObjectSerializerContext getSerializerContext() {
+            return ctx;
+        }
+
+        /**
+         * @param ctx the ctx to set
+         */
+        public void setSerializerContext(ObjectSerializerContext ctx) {
+            this.ctx = ctx;
         }
 
     }

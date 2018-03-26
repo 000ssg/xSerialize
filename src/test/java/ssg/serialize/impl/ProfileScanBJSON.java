@@ -3,6 +3,7 @@
  */
 package ssg.serialize.impl;
 
+import ssg.serialize.base.ObjectSerializerContext;
 import ssg.serialize.ObjectSerializer;
 import ssg.serialize.ObjectSerializer.OSStat;
 import ssg.serialize.impl.BJSONSerializer.BJSONStat;
@@ -67,10 +68,10 @@ public class ProfileScanBJSON {
                 //System.out.println(info+"\n  "+ctx.decyclerv.dumpRegistered(wr, false,true).replace("\n", "\n  "));
             }
         };
-        bjson2.decycleFlags
-                = BJSONSerializer.DF_STRING
+        bjson2.setDecycleFlags(
+                BJSONSerializer.DF_STRING
                 | BJSONSerializer.DF_BIGDEC
-                | BJSONSerializer.DF_BIGINT;
+                | BJSONSerializer.DF_BIGINT);
         byte[] data = null;
         byte[] data2 = null;
         Map datam = null;
@@ -182,7 +183,7 @@ public class ProfileScanBJSON {
             for (int i = 0; i < 100; i++) {
                 BJSONStat stat = new BJSONStat();
                 bjson.scan(sh, stat, new ByteArrayInputStream(data));
-                float t = (stat.completed - stat.started) / 1000000f;
+                float t = (stat.getCompleted() - stat.getStarted()) / 1000000f;
                 times += t;
                 count++;
 
@@ -212,7 +213,7 @@ public class ProfileScanBJSON {
             for (int i = 0; i < 100; i++) {
                 BJSONStat stat = new BJSONStat();
                 bjson2.scan(sh, stat, new ByteArrayInputStream(data2));
-                float t = (stat.completed - stat.started) / 1000000f;
+                float t = (stat.getCompleted() - stat.getStarted()) / 1000000f;
                 times += t;
                 count++;
 

@@ -5,7 +5,6 @@
  */
 package ssg.serialize.tools;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
@@ -21,11 +20,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Stack;
 import java.util.TimeZone;
-import ssg.serialize.impl.BASE64InputStream;
 
 /**
  *
- * @author sesidoro
+ * @author 000ssg
  */
 public class BER {
 

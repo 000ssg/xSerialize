@@ -1,7 +1,7 @@
 /*
  * AS IS
  */
-package ssg.serialize.impl;
+package ssg.serialize.base;
 
 import ssg.serialize.Serialize;
 import java.io.ByteArrayOutputStream;

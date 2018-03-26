@@ -3,6 +3,9 @@
  */
 package ssg.serialize.impl;
 
+import ssg.serialize.base.BaseScanHandler;
+import ssg.serialize.base.BaseObjectSerializer;
+import ssg.serialize.base.ObjectSerializerContext;
 import ssg.serialize.tools.Indent;
 import ssg.serialize.tools.Decycle;
 import ssg.serialize.tools.Reflector;
@@ -152,14 +155,14 @@ public class JSONSerializer extends BaseObjectSerializer {
         if (obj == null) {
             return writeNull(os, ctx);
         } else if (ctx.isScalar(obj)) {
-            Long ref = ((decycleFlags & DF_EXTENSIONS) != 0) ? ctx.checkRef(obj) : null;
+            Long ref = ((getDecycleFlags() & DF_EXTENSIONS) != 0) ? ctx.checkRef(obj) : null;
             if (ref != null) {
                 return writeRef(obj, ref, os, ctx);
             } else if (obj instanceof Number) {
-                if (obj instanceof BigDecimal && (decycleFlags & DF_BIGDEC) != 0) {
+                if (obj instanceof BigDecimal && (getDecycleFlags() & DF_BIGDEC) != 0) {
                     return writeString(obj.toString(), false, os, ctx);
-                } else if (obj instanceof BigInteger && (decycleFlags & DF_BIGINT) != 0) {
-                    if ((decycleFlags & TF_BIGINT_AS_BYTES) != 0) {
+                } else if (obj instanceof BigInteger && (getDecycleFlags() & DF_BIGINT) != 0) {
+                    if ((getDecycleFlags() & TF_BIGINT_AS_BYTES) != 0) {
                         return writeString(BASE64Serializer.encode(((BigInteger) obj).toByteArray()), false, os, ctx);
                     } else {
                         return writeString(obj.toString(), false, os, ctx);
@@ -288,7 +291,7 @@ public class JSONSerializer extends BaseObjectSerializer {
                 .replace("'", "\\'")
                 .replace("\"", "\\\"")
                 .replace("/", "\\/")
-                .getBytes(encoding);
+                .getBytes(getEncoding());
         os.write((byte) '"');
         os.write(bb);
         os.write((byte) '"');
@@ -298,7 +301,7 @@ public class JSONSerializer extends BaseObjectSerializer {
     @Override
     public long writeScalar(Object obj, OutputStream os, ObjectSerializerContext ctx) throws IOException {
         if (obj instanceof Number) {
-            if (obj instanceof BigInteger && (decycleFlags & TF_BIGINT_AS_BYTES) != 0) {
+            if (obj instanceof BigInteger && (getDecycleFlags() & TF_BIGINT_AS_BYTES) != 0) {
                 return writeString(BASE64Serializer.encode(((BigInteger) obj).toByteArray()), false, os, ctx);
             } else {
                 byte[] bb = obj.toString().getBytes();
@@ -329,7 +332,7 @@ public class JSONSerializer extends BaseObjectSerializer {
         } else if (obj instanceof char[]) {
             return writeStringChars((char[]) obj, false, os, ctx);
         }
-        boolean skipNulls = (decycleFlags & DF_IGNORE_COLLECTION_NULLS) != 0;
+        boolean skipNulls = (getDecycleFlags() & DF_IGNORE_COLLECTION_NULLS) != 0;
         long c = 2;
         os.write((byte) '[');
         Indent indent = indent();
@@ -498,8 +501,8 @@ public class JSONSerializer extends BaseObjectSerializer {
             try {
                 Map<String, Object> m = (Map) obj;
                 boolean first = true;
-                boolean keyIsResolvable = (decycleFlags & TF_DISABLE_MAP_KEY) != 0;
-                boolean skipNulls = (decycleFlags & DF_IGNORE_MAP_NULLS) != 0;
+                boolean keyIsResolvable = (getDecycleFlags() & TF_DISABLE_MAP_KEY) != 0;
+                boolean skipNulls = (getDecycleFlags() & DF_IGNORE_MAP_NULLS) != 0;
                 for (Object key : m.keySet()) {
                     Object o = m.get(key);
                     if (skipNulls && o == null) {
@@ -545,8 +548,8 @@ public class JSONSerializer extends BaseObjectSerializer {
             }
             try {
                 boolean first = true;
-                boolean keyIsResolvable = (decycleFlags & TF_DISABLE_MAP_KEY) != 0;
-                boolean skipNulls = (decycleFlags & DF_IGNORE_MAP_NULLS) != 0;
+                boolean keyIsResolvable = (getDecycleFlags() & TF_DISABLE_MAP_KEY) != 0;
+                boolean skipNulls = (getDecycleFlags() & DF_IGNORE_MAP_NULLS) != 0;
                 for (Object key : rf.keySet()) {
                     Object o = rf.get(obj, key);
                     if (skipNulls && o == null) {
@@ -608,7 +611,7 @@ public class JSONSerializer extends BaseObjectSerializer {
     }
 
     public Object read(InputStream is, ObjectSerializerContext ctx) throws IOException {
-        Reader rdr = new InputStreamReader(is, encoding) {
+        Reader rdr = new InputStreamReader(is, getEncoding()) {
             long pos = 0;
 
             @Override
@@ -1109,7 +1112,7 @@ public class JSONSerializer extends BaseObjectSerializer {
             }
             //return (T) ctx.resolveRef(sb.toString(), null);
             String s = sb.toString();
-            if (asKey && (decycleFlags & TF_DISABLE_MAP_KEY) == 0) {
+            if (asKey && (getDecycleFlags() & TF_DISABLE_MAP_KEY) == 0) {
                 String s1 = ctx.resolveRef(s, null);
                 return (T) ((s1 != null) ? s1 : s);
             } else {
@@ -1146,7 +1149,7 @@ public class JSONSerializer extends BaseObjectSerializer {
             String s = new String(buf, 0, bpos);
 //            String s1 = ctx.resolveRef(s, null);
 //            return (T) ((s1 != null) ? s1 : s);
-            if (!asKey || asKey && (decycleFlags & TF_DISABLE_MAP_KEY) != 0) {
+            if (!asKey || asKey && (getDecycleFlags() & TF_DISABLE_MAP_KEY) != 0) {
                 String s1 = ctx.resolveRef(s, null);
                 return (T) ((s1 != null) ? s1 : s);
             } else {
@@ -1182,7 +1185,7 @@ public class JSONSerializer extends BaseObjectSerializer {
             stat = new JOSStat();
         }
         final OSStat pstat = stat;
-        PushbackReader rdr = new PushbackReader(new InputStreamReader(is, encoding) {
+        PushbackReader rdr = new PushbackReader(new InputStreamReader(is, getEncoding()) {
             long pos = 0;
 
             @Override
@@ -1194,7 +1197,7 @@ public class JSONSerializer extends BaseObjectSerializer {
             }
         });
         if (stat instanceof BOSStat) {
-            ((BOSStat) stat).ctx = createContext(is);
+            ((BOSStat) stat).setSerializerContext(createContext(is));
         }
         return scan(handler, stat, rdr, -1);
     }
@@ -1538,7 +1541,7 @@ public class JSONSerializer extends BaseObjectSerializer {
 
         @Override
         public String refType(Integer ref) {
-            return (ref < refTypes.size()) ? refTypes.get(ref) : null;
+            return (ref < getRefTypes().size()) ? getRefTypes().get(ref) : null;
         }
 
         @Override

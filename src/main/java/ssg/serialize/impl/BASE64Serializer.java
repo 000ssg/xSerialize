@@ -3,6 +3,7 @@
  */
 package ssg.serialize.impl;
 
+import ssg.serialize.base.BaseStreamSerializer;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -90,7 +91,7 @@ public class BASE64Serializer extends BaseStreamSerializer {
 
     @Override
     public byte[] fromText(String text) throws IOException {
-        return fromBytes(text.getBytes(encoding));
+        return fromBytes(text.getBytes(getEncoding()));
     }
 
     @Override
@@ -104,7 +105,7 @@ public class BASE64Serializer extends BaseStreamSerializer {
             return write((InputStream) obj, os, wrapAt);
         } else {
             if (obj instanceof String) {
-                obj = ((String) obj).getBytes(encoding);
+                obj = ((String) obj).getBytes(getEncoding());
             }
             if (obj instanceof byte[]) {
                 byte[] buf = (byte[]) obj;

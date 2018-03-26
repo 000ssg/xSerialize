@@ -3,6 +3,7 @@
  */
 package ssg.serialize.impl;
 
+import ssg.serialize.base.BaseObjectSerializer;
 import ssg.serialize.utils.Stat;
 import ssg.serialize.utils.RW;
 import ssg.serialize.utils.TestPOJO;
@@ -174,10 +175,10 @@ public class FunctionalJSON {
                         rw = RW.getRW(key);
                         if (rw.getInstance() instanceof BJSONSerializer) {
                             rws.add(rw);
-                            ((BaseObjectSerializer) rw.getInstance()).decycleFlags
-                                    = BaseObjectSerializer.DF_STRING
+                            ((BaseObjectSerializer) rw.getInstance()).setDecycleFlags(
+                                    BaseObjectSerializer.DF_STRING
                                     | BaseObjectSerializer.DF_BIGINT
-                                    | BaseObjectSerializer.DF_BIGDEC;
+                                    | BaseObjectSerializer.DF_BIGDEC);
                             rw.title += "(x)";
                             System.out.println("added " + rw);
                             rw = RW.getRW(key);

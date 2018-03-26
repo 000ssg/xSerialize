@@ -3,6 +3,7 @@
  */
 package ssg.serialize.impl;
 
+import ssg.serialize.base.BaseStreamSerializer;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -52,7 +53,7 @@ public class UTF8Serializer extends BaseStreamSerializer {
             return write((InputStream) obj, os);
         } else {
             if (obj instanceof byte[]) {
-                obj = new String((byte[]) obj, encoding);
+                obj = new String((byte[]) obj, getEncoding());
             }
             if (obj instanceof String) {
                 obj = ((String) obj).toCharArray();
@@ -225,7 +226,7 @@ public class UTF8Serializer extends BaseStreamSerializer {
         byte[] buf = new byte[1024];
         char[] cbuf = new char[1024];
         if (encode) {
-            Reader rdr = new InputStreamReader(is, encoding);
+            Reader rdr = new InputStreamReader(is, getEncoding());
             int c = 0;
             int pos = 0;
             while ((c = rdr.read(cbuf)) != -1) {

@@ -3,6 +3,7 @@
  */
 package ssg.serialize.impl;
 
+import ssg.serialize.base.ObjectSerializerContext;
 import ssg.serialize.ObjectSerializer.OSScanHandler;
 import ssg.serialize.ObjectSerializer.OSStat;
 import ssg.serialize.impl.BJSONSerializer.BJSONScanHandler;
@@ -33,7 +34,7 @@ import static ssg.serialize.utils.TestPOJO.randomPOJO;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
-import ssg.serialize.impl.ObjectSerializerContext.DecyclerListener;
+import ssg.serialize.base.ObjectSerializerContext.DecyclerListener;
 
 /**
  *
@@ -202,10 +203,10 @@ public class BJSONSerializerTest {
         bjson2.setResolveCyclicReferences(true);
         //bjson.DEBUG=true;
         //bjson2.DEBUG=true;
-        bjson2.decycleFlags
-                = BJSONSerializer.DF_STRING
+        bjson2.setDecycleFlags(
+                BJSONSerializer.DF_STRING
                 | BJSONSerializer.DF_BIGDEC
-                | BJSONSerializer.DF_BIGINT;
+                | BJSONSerializer.DF_BIGINT);
 
         float[][] vars = new float[2][2];
         int count = 100;
@@ -316,10 +317,10 @@ public class BJSONSerializerTest {
             bjson2.setResolveCyclicReferences(true);
             //bjson.DEBUG=true;
             //bjson2.DEBUG=true;
-            bjson2.decycleFlags
-                    = BJSONSerializer.DF_STRING
+            bjson2.setDecycleFlags(
+                    BJSONSerializer.DF_STRING
                     | BJSONSerializer.DF_BIGDEC
-                    | BJSONSerializer.DF_BIGINT;
+                    | BJSONSerializer.DF_BIGINT);
 
             byte[] data = null;
             byte[] data2 = null;
@@ -438,10 +439,10 @@ public class BJSONSerializerTest {
         bjson2.setResolveCyclicReferences(true);
         //bjson.DEBUG=true;
         //bjson2.DEBUG=true;
-        bjson2.decycleFlags
-                = BJSONSerializer.DF_STRING
+        bjson2.setDecycleFlags(
+                BJSONSerializer.DF_STRING
                 | BJSONSerializer.DF_BIGDEC
-                | BJSONSerializer.DF_BIGINT;
+                | BJSONSerializer.DF_BIGINT);
         byte[] data = Common.load(new File("./target/JST_1.bjson"));
         byte[] data2 = Common.load(new File("./target/JST_2.bjson"));
         if (data != null) {
@@ -462,10 +463,10 @@ public class BJSONSerializerTest {
             BJSONStat stat = new BJSONStat();
             OSScanHandler<Byte, Integer> sh = new BJSONScanHandler();
             bjson.scan(sh, stat, new ByteArrayInputStream(data));
-            float t = (stat.completed - stat.started) / 1000000f;
+            float t = (stat.getCompleted() - stat.getStarted()) / 1000000f;
             Map m = sh.root();
             bjson2.scan(sh, stat, new ByteArrayInputStream(data2));
-            float t1 = (stat.completed - stat.started) / 1000000f;
+            float t1 = (stat.getCompleted() - stat.getStarted()) / 1000000f;
             Map m2 = sh.root();
 
             System.out.println("\nm0 in\t" + t0 + "ms.");

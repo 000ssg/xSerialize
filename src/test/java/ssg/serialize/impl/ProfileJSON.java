@@ -3,6 +3,7 @@
  */
 package ssg.serialize.impl;
 
+import ssg.serialize.base.ObjectSerializerContext;
 import ssg.serialize.ObjectSerializer;
 import ssg.serialize.ObjectSerializer.OSStat;
 import ssg.serialize.utils.DeepCompare;
@@ -119,10 +120,10 @@ public class ProfileJSON {
                     //System.out.println(info+"\n  "+ctx.decyclerv.dumpRegistered(wr, false,true).replace("\n", "\n  "));
                 }
             };
-            json2.decycleFlags
-                    = JSONSerializer.DF_STRING
+            json2.setDecycleFlags(
+                    JSONSerializer.DF_STRING
                     | JSONSerializer.DF_BIGDEC
-                    | JSONSerializer.DF_BIGINT;
+                    | JSONSerializer.DF_BIGINT);
             byte[] data = null;
             byte[] data2 = null;
             long dur = 0;
