@@ -165,7 +165,7 @@ public class BJSONSerializerTest {
         Object res = instance.fromBytes(ser);
         Object result = instance.enrich(res, clazz);
         System.out.println("SRC: " + obj);
-        System.out.println("MAP: " + Dump.dumpMap((Map) res));
+        System.out.println("MAP: " + Dump.dumpMap((Map) res, false, false));
         System.out.println("DST: " + result);
 
         DeepCompare.DC dc = DeepCompare.diff(obj, res);

@@ -51,8 +51,11 @@ public abstract class BaseScanHandler<T, R> implements OSScanHandler<T, R> {
     }
 
     @Override
-    public void onEnd() {
+    public void onEnd(Object value) {
         Object root = (!stack.isEmpty()) ? stack.get(0) : null;
+        if (value != null) {
+            root = value;
+        }
         stack.clear();
         refStack.clear();
         referrables.clear();

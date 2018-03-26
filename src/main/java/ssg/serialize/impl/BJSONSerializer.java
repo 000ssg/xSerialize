@@ -579,7 +579,7 @@ public class BJSONSerializer extends BaseObjectSerializer {
             return scan(stat, handler, is);
         } finally {
             if (handler != null) {
-                handler.onEnd();
+                handler.onEnd(null);
             }
         }
     }

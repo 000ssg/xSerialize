@@ -1552,11 +1552,6 @@ public class JSONSerializer extends BaseObjectSerializer {
         int nextRef = 1;
 
         @Override
-        public void onStart() {
-            super.onStart(); //To change body of generated methods, choose Tools | Templates.
-        }
-
-        @Override
         public boolean isObject(String type) {
             return TN_OBJECT.equals(type);
         }

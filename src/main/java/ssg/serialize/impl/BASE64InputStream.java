@@ -21,16 +21,108 @@ public class BASE64InputStream extends FilterInputStream {
     int opos = 0;
     int olen = 0;
 
+    /**
+     * Prepares BASE64 decoder.
+     *
+     * @param is
+     */
     public BASE64InputStream(final InputStream is) {
         super(new InputStream() {
             @Override
             public int read() throws IOException {
                 // filter to skip CR/LF
-                int r = is.read();
-                while (r == '\r' || r == '\n') {
-                    r = is.read();
+                int c = is.read();
+                while (c == '\r' || c == '\n') {
+                    c = is.read();
                 }
-                return r;
+                return c;
+            }
+        });
+    }
+
+    /**
+     * Section-aware input stream handling support.
+     *
+     * If sectionOnly=true, then input stream content is skipped up to "\r\n"
+     * and is forced to EOF once "\r\n-" is detected simulating section content
+     * within section boundaries like:
+     *
+     * ----- header\r\n
+     *
+     * content
+     *
+     * \r\n------ end of section
+     *
+     * @param is
+     * @param sectionOnly
+     */
+    public BASE64InputStream(final InputStream is, boolean sectionOnly) {
+        super((sectionOnly)
+                ? new InputStream() {
+            int prelast = 0;
+            int last = 0;
+            boolean EOF = false;
+            long pos = 0;
+
+            {
+                try {
+                    int c = 0;
+                    while ((c = is.read()) != -1) {
+                        if (c == '\n' && last == '\r') {
+                            break;
+                        }
+                        last = c;
+                        pos++;
+                        //System.out.println("["+pos+"]   "+(""+(char)c).replace("\n", "\\n").replace("\r", "\\r"));
+                    }
+                    //System.out.println("["+pos+"]*  "+(""+(char)c).replace("\n", "\\n").replace("\r", "\\r"));
+                    last = 0;
+                    pos = 0;
+                } catch (IOException ioex) {
+                    int a = 0;
+                }
+            }
+
+            @Override
+            public int read() throws IOException {
+                if (EOF) {
+                    return -1;
+                }
+                prelast = last;
+
+                int c = is.read();
+                if (c == -1) {
+                    EOF = true;
+                    return c;
+                }
+                //System.out.println("["+pos+"] "+((c>' ') ? (char)c : "#"+c));
+                pos++;
+                //System.out.println("["+pos+"].  "+(""+(char)c).replace("\n", "\\n").replace("\r", "\\r"));
+
+                if (c == '-' && last == '\n' && prelast == '\r') {
+                    EOF = true;
+                    return -1;
+                }
+                last = c;
+
+                // filter to skip CR/LF
+                while (c == '\r' || c == '\n') {
+                    c = read();
+                }
+
+                return c;
+            }
+
+        }
+                : new InputStream() {
+            @Override
+            public int read() throws IOException {
+                // filter to skip CR/LF
+                int c = is.read();
+                while (c == '\r' || c == '\n') {
+                    c = is.read();
+                }
+                return c;
             }
         });
     }
@@ -109,7 +201,7 @@ public class BASE64InputStream extends FilterInputStream {
                 return -1;
             }
         }
-        int r = obuf[opos++];
+        int r = 0xFF & obuf[opos++];
         olen--;
         return r;
     }

@@ -403,12 +403,12 @@ public class DeepCompare {
                     sb.append("\n    Path: " + p);
                 }
                 if (a instanceof Collection || a != null && a.getClass().isArray()) {
-                    sb.append("\n    A: " + ("" + Dump.dumpArray(a)).replace("\n", "\n    "));
+                    sb.append("\n    A: " + ("" + Dump.dump(a, false, false)).replace("\n", "\n    "));
                 } else {
                     sb.append("\n    A: " + ("" + a).replace("\n", "\n    "));
                 }
                 if (b instanceof Collection || b != null && b.getClass().isArray()) {
-                    sb.append("\n    B: " + ("" + Dump.dumpArray(b)).replace("\n", "\n    "));
+                    sb.append("\n    B: " + ("" + Dump.dump(b, false, false)).replace("\n", "\n    "));
                 } else {
                     sb.append("\n    B: " + ("" + b).replace("\n", "\n    "));
                 }

@@ -173,7 +173,7 @@ public interface ObjectSerializer extends Serializer {
         /**
          * Stop scanning (e.g. finalize structures and adjust root)
          */
-        void onEnd();
+        void onEnd(Object value);
 
         /**
          * Open nested item of type.
@@ -251,7 +251,7 @@ public interface ObjectSerializer extends Serializer {
         }
 
         @Override
-        public void onEnd() {
+        public void onEnd(Object value) {
             completed = System.nanoTime();
         }
 
@@ -337,9 +337,9 @@ public interface ObjectSerializer extends Serializer {
         }
 
         @Override
-        public void onEnd() {
+        public void onEnd(Object value) {
             for (int i = 0; i < handlers.length; i++) {
-                handlers[i].onEnd();
+                handlers[i].onEnd(value);
             }
         }
 
