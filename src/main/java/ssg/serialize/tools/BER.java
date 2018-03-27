@@ -5,23 +5,33 @@
  */
 package ssg.serialize.tools;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Stack;
 import java.util.TimeZone;
+import ssg.serialize.utils.Dump;
 
 /**
+ * Use scan to get parsed BER-encoded data.
+ *
+ * Use BEREntry with BERConstructorContext to create proper ASN.1 output.
  *
  * @author 000ssg
  */
@@ -200,7 +210,8 @@ public class BER {
         }
 
         public void close() throws IOException {
-            if (this.value instanceof Collection && getType(header, off) != CLASS_SEQUENCE) {
+            if (this.value instanceof Collection && !(getType(header, off) == CLASS_SEQUENCE
+                    || getType(header, off) == CLASS_SET)) {
                 Collection coll = (Collection) value;
                 if (!coll.isEmpty() && coll.iterator().next() instanceof byte[]) {
                     int bufsSize = 0;
@@ -322,6 +333,43 @@ public class BER {
     }
 
     /**
+     * Writes tag/primitive/type/length bytes and returns resultant header size.
+     *
+     * @param buf
+     * @param off
+     * @param tag
+     * @param primitive
+     * @param tag
+     * @param length
+     * @return
+     */
+    public static int createHeader(byte[] buf, int off, int tag, boolean primitive, int type, long length) {
+        setTag(buf, off, tag);
+        setPrimitive(buf, off, primitive);
+        int tc = setType(buf, off, type);
+        int lc = setLength(buf, off, length);
+        return 1 + tc + lc;
+    }
+
+    /**
+     * Writes tag/primitive/type bytes and returns resultant header size
+     * (without length!).
+     *
+     * @param buf
+     * @param off
+     * @param tag
+     * @param primitive
+     * @param tag
+     * @return
+     */
+    public static int createHeader(byte[] buf, int off, int tag, boolean primitive, int type) {
+        setTag(buf, off, tag);
+        setPrimitive(buf, off, primitive);
+        int tc = setType(buf, off, type);
+        return 1 + tc;
+    }
+
+    /**
      * Returns tag value (2 upper bits -> int) from header at offset.
      *
      * @param buf
@@ -331,6 +379,21 @@ public class BER {
     public static int getTag(byte[] buf, int off) {
         // 8.1.2.2
         return (0xFF & ((buf[0 + off] & 0xC0) >> 6));
+    }
+
+    /**
+     * Returns tag value (2 upper bits -> int) from header at offset.
+     *
+     * @param buf
+     * @param off
+     * @return
+     */
+    public static void setTag(byte[] buf, int off, int tag) {
+        // 8.1.2.2
+        // clear tag bits
+        buf[off] ^= 0xC0 & buf[off];
+        // set actual tag bits
+        buf[off] |= ((tag & 0x03) << 6);
     }
 
     /**
@@ -344,6 +407,23 @@ public class BER {
     public static boolean isPrimitive(byte[] buf, int off) {
         // 8.1.2.5
         return ((buf[0 + off] & 0x20) == 0);
+    }
+
+    /**
+     * Returns true if specified header (at offset) has bit 6=0 (i.e. value is
+     * NOT constructed)
+     *
+     * @param buf
+     * @param off
+     * @return
+     */
+    public static void setPrimitive(byte[] buf, int off, boolean primitive) {
+        // 8.1.2.5
+        if (primitive) {
+            buf[0 + off] ^= 0x20 & buf[0 + off];
+        } else {
+            buf[0 + off] |= 0x20;
+        }
     }
 
     /**
@@ -378,6 +458,29 @@ public class BER {
     }
 
     /**
+     * Sets type (possibly multi.byte). Returns number of type bytes.
+     *
+     * @param buf
+     * @param off
+     * @param type
+     * @return
+     */
+    public static int setType(byte[] buf, int off, int type) { //throws IOException {
+        byte b = buf[off];
+        int bits = NumberTools.bits(type);
+        int bytes = bits / 7 + 1;
+        off++;
+        for (int i = bytes - 1; i >= 0; i++) {
+            int v = (type & (0x7F << i * 7)) >> i * 7;
+            if (i > 0) {
+                v = 0x80;
+            }
+            buf[off++] = (byte) (0xFF & v);
+        }
+        return bytes;
+    }
+
+    /**
      * Returns length of value possibly constructing it from several bytes.
      * Length starting byte may depend on type length (evaluated).
      *
@@ -405,6 +508,42 @@ public class BER {
         }
     }
 
+    public static int setIndefiniteLength(byte[] buf, int off) {
+        // 8.1.3.6 - indefinite length
+        off += getTypeLength(buf, off) + 1;
+        buf[off] = (byte) 0x80;
+        return 1;
+    }
+
+    public static int setLength(byte[] buf, int off, long length) {
+        off += getTypeLength(buf, off) + 1;
+        if (length == INDEFINITE_LENGTH) {
+            return setIndefiniteLength(buf, off);
+        }
+        if (length < 128) {
+            buf[off] = (byte) (0xFF & length);
+            return 1;
+        }
+
+        int bits = NumberTools.bits(length);
+        int bytes = bits / 8 + 1;
+        buf[off++] = (byte) ((0x7F & bytes) | 0x80);
+        for (int i = bytes - 1; i >= 0; i++) {
+            int v = (int) ((length & (0xFF << i * 8)) >> i * 8);
+            buf[off++] = (byte) (0xFF & v);
+        }
+        return bytes + 1;
+    }
+
+    public static long getEntrySize(byte[] header, int off) {
+        long dl = getLength(header, off);
+        if (dl == INDEFINITE_LENGTH || dl < 0) {
+            return INDEFINITE_LENGTH;
+        } else {
+            return getHeaderLength(header, off) + dl;
+        }
+    }
+
     /**
      * Returns string with header info.
      *
@@ -413,6 +552,9 @@ public class BER {
      * @return
      */
     public static String dumpHeader(byte[] header, int off) {
+        if (header == null || header.length == 0) {
+            return "<no header>";
+        }
         int tag = getTag(header, off);
         boolean primitive = isPrimitive(header, off);
         int type = getType(header, off);
@@ -666,14 +808,18 @@ public class BER {
                     res = (T) new String(readFull((int) len, is, "EOF while reading string of " + len + " bytes."), "UTF-8");
                     break;
                 case CLASS_NUMERIC_STRING: // 18,NumericString
+                    res = (T) toNumericString(readFull((int) len, is, "EOF while reading string of " + len + " bytes."));
+                    break;
                 case CLASS_PRINTABLE_STRING: // 19,PrintableString
+                    res = (T) toPrintableString(readFull((int) len, is, "EOF while reading string of " + len + " bytes."));
+                    break;
                 case CLASS_TELETEX_STRING: // 20,TeletexString (T61String)
                 case CLASS_VIDEOTEX_STRING: // 21,VideotexString
                 case CLASS_VISIBLE_STRING: // 26,VisibleString (ISO646String)
                 case CLASS_IA5_STRING: // 22,IA5String
                 case CLASS_GRAPHIC_STRING: // 25,GraphicString (G sets + space)
                 case CLASS_GRAPHIC_STRING2: // 27,GraphicString (C + G sets, space, delete)
-                    res = (T) new String(readFull((int) len, is, "EOF while reading string of " + len + " bytes."), "ISO-8859-1");
+                    res = (T) toUniversalString(readFull((int) len, is, "EOF while reading string of " + len + " bytes."));
                     break;
                 case CLASS_SEQUENCE: // 16,SEQUENCE
                     throw new IOException("SEQUENCE must be handled prior to get.");
@@ -686,10 +832,178 @@ public class BER {
             is.popLimit();
         }
     }
+
+    /**
+     * Retrieves value based on header information. Input stream is expected to
+     * be at position just after header!
+     *
+     * NOTE: this method should be used for retrieval of primitive values only.
+     * If value is constructed, it should be built from primitive values outside
+     * of this method.
+     *
+     * @param <T>
+     * @param header
+     * @param off
+     * @param is
+     * @return
+     * @throws IOException
+     */
+    public static byte[] createValue(byte[] header, int off, Object value) throws IOException {
+        byte[] res = null;
+        try {
+            int type = getType(header, off);
+            long len = getLength(header, off);
+            int b = 0;
+            switch ((int) type) {
+                case CLASS_BOOLEAN: // 1,BOOLEAN
+                    boolean bv = (value != null && value instanceof Boolean)
+                            ? (Boolean) value
+                            : (value != null && value instanceof Number)
+                                    ? ((Number) value).longValue() != 0
+                                    : false;
+                    res = (bv) ? new byte[]{-1} : new byte[]{0};
+                    break;
+                case CLASS_INTEGER: // 2,INTEGER
+                case CLASS_ENUMERATED: // 10,ENUMERATED
+                {
+                    if (value instanceof BigInteger) {
+                        res = ((BigInteger) value).toByteArray();
+                    } else if (value instanceof Number) {
+                        res = BigInteger.valueOf(((Number) value).longValue()).toByteArray();
+                    } else if (value != null && value.getClass().isEnum()) {
+                        int eov = Reflector.getEnumOrder(value);
+                        res = BigInteger.valueOf(eov).toByteArray();
+                    } else {
+                        res = new byte[0];
+                    }
+                }
+                break;
+                case CLASS_BIT_STRING: // 3,BIT STRING
+                {
+                    BitString bs = (value instanceof BitString)
+                            ? (BitString) value
+                            : (value instanceof byte[])
+                                    ? new BitString((byte[]) value, ((byte[]) value).length * 8)
+                                    : null;
+                    if (bs != null) {
+                        res = bs.toBERBytes();
+                    }
+                }
+                break;
+                case CLASS_OCTET_STRING: // 4,OCTET STRING
+                    res = (value instanceof byte[])
+                            ? (byte[]) value
+                            : (value instanceof String)
+                                    ? ((String) value).getBytes("ISO-8859-1")
+                                    : null;
+                    break;
+                case CLASS_NULL: // 5,NULL
+                    res = new byte[0];
+                    break;
+                case CLASS_OBJECT_IDENTIFIER: // 6,OBJECT IDENTIFIER
+                {
+                    OID oid = (value instanceof OID)
+                            ? (OID) value
+                            : (value instanceof String)
+                                    ? new OID((String) value)
+                                    : (value instanceof byte[])
+                                            ? new OID((byte[]) value)
+                                            : null;
+                    if (oid != null) {
+                        res = oid.bytes;
+                    }
+                }
+                break;
+                case CLASS_REAL: // 9,REAL
+                {
+                    Double d = (value instanceof Number)
+                            ? ((Number) value).doubleValue()
+                            : null;
+                    if (d != null) {
+                        String s = d.toString();
+                        if (s.contains("e") || s.contains("E")) {
+                            // NR3
+                            res = ((char) 3 + s).getBytes("ISO-8859-1");
+                        } else if (s.contains(".")) {
+                            // NR2
+                            res = ((char) 2 + s).getBytes("ISO-8859-1");
+                        } else {
+                            // NR1
+                            res = ((char) 1 + s).getBytes("ISO-8859-1");
+                        }
+                    }
+                }
+                break;
+                case CLASS_TIME: // 23,time
+                {
+                    if (value instanceof Date) {
+                        res = time23format.format((Date) value).getBytes("ISO-8859-1");
+                    } else if (value instanceof Number) {
+                        res = time23format.format(new Date(((Number) value).longValue())).getBytes("ISO-8859-1");
+                    }
+                }
+                break;
+                case CLASS_TIME2: // 24,universal time
+                {
+                    if (value instanceof Date) {
+                        res = time24formatC.format((Date) value).getBytes("ISO-8859-1");
+                    } else if (value instanceof Number) {
+                        res = time24formatC.format(new Date(((Number) value).longValue())).getBytes("ISO-8859-1");
+                    }
+                }
+                break;
+                /////////////////// strings
+                case CLASS_UTF8_STRING: // 12,UTF8String
+                    if (value instanceof String) {
+                        res = ((String) value).getBytes("UTF-8");
+                    } else if (value instanceof byte[]) {
+                        res = (byte[]) value;
+                    }
+                    break;
+                case CLASS_NUMERIC_STRING: // 18,NumericString
+                    if (value instanceof String) {
+                        res = ((String) value).getBytes("ISO-8859-1");
+                    } else if (value instanceof byte[]) {
+                        res = (byte[]) value;
+                    }
+                    break;
+                case CLASS_PRINTABLE_STRING: // 19,PrintableString
+                    if (value instanceof String) {
+                        res = ((String) value).getBytes("ISO-8859-1");
+                    } else if (value instanceof byte[]) {
+                        res = (byte[]) value;
+                    }
+                    break;
+                case CLASS_TELETEX_STRING: // 20,TeletexString (T61String)
+                case CLASS_VIDEOTEX_STRING: // 21,VideotexString
+                case CLASS_VISIBLE_STRING: // 26,VisibleString (ISO646String)
+                case CLASS_IA5_STRING: // 22,IA5String
+                case CLASS_GRAPHIC_STRING: // 25,GraphicString (G sets + space)
+                case CLASS_GRAPHIC_STRING2: // 27,GraphicString (C + G sets, space, delete)
+                    if (value instanceof String) {
+                        res = ((String) value).getBytes("ISO-8859-1");
+                    } else if (value instanceof byte[]) {
+                        res = (byte[]) value;
+                    }
+                    break;
+                case CLASS_SEQUENCE: // 16,SEQUENCE
+                    throw new IOException("SEQUENCE must be handled prior to get.");
+                default:
+                    if (value instanceof String) {
+                        res = ((String) value).getBytes("ISO-8859-1");
+                    } else if (value instanceof byte[]) {
+                        res = (byte[]) value;
+                    }
+            }
+            //System.out.println("   get: " + type + "/" + len + "\n    = " + res);
+            return res;
+        } finally {
+        }
+    }
+
     ////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////// utilities
     ////////////////////////////////////////////////////////////////////////////
-
     /**
      * Reflection-based int to string conversion. Uses static int field names
      * with removed "CLASS_" prefix.
@@ -838,6 +1152,73 @@ public class BER {
         }
     }
 
+    ////////////////////////////////////////////////////////////////
+    public static String toNumericString(byte[] data) throws IOException {
+        if (data == null) {
+            return null;
+        }
+        // verify
+        for (byte b : data) {
+            switch (b) {
+                case '0':
+                case '1':
+                case '2':
+                case '3':
+                case '4':
+                case '5':
+                case '6':
+                case '7':
+                case '8':
+                case '9':
+                case ' ':
+                    break;
+                default:
+                    throw new IOException("Invalid numeric character: 0x" + Integer.toHexString(0xFF & b) + ". Allowed ar3e '0'..'9',' '.");
+            }
+        }
+        return new String(data, "ISO-8859-1");
+    }
+
+    public static String toPrintableString(byte[] data) throws IOException {
+        if (data == null) {
+            return null;
+        }
+        // verify
+        for (byte b : data) {
+            switch (b) {
+                case ' ':
+                case '\'':
+                case '(':
+                case ')':
+                case '+':
+                case ',':
+                case '-':
+                case '.':
+                case '/':
+                case ':':
+                case '=':
+                case '?':
+                    break;
+                default:
+                    if ((b >= '0' && b <= '9')
+                            || (b >= 'A' && b <= 'Z')
+                            || (b >= 'a' && b <= 'z')) {
+                        // valid subsets
+                    } else {
+                        throw new IOException("Invalid numeric character: 0x" + Integer.toHexString(0xFF & b) + ". Allowed ar3e '0'..'9',' '.");
+                    }
+            }
+        }
+        return new String(data, "ISO-8859-1");
+    }
+
+    public static String toUniversalString(byte[] data) throws IOException {
+        if (data == null) {
+            return null;
+        }
+        return new String(data, "ISO-8859-1");
+    }
+
     /**
      * Represents BER bitstring to avoid loss of info.
      */
@@ -859,6 +1240,21 @@ public class BER {
                 skipBits = sb;
             }
             data = new byte[bitLen / 8 + ((skipBits > 0) ? 1 : 0)];
+        }
+
+        public BitString(byte[] buf, int bitLen) {
+            this.bitLen = bitLen;
+            skipBits = bitLen % 8;
+            if (skipBits > 0) {
+                skipBits = 8 - skipBits;
+                int sb = 0xFF;
+                for (int i = 0; i < skipBits; i++) {
+                    sb ^= (1 << i);
+                }
+                skipBits = sb;
+            }
+            int dl = bitLen / 8 + ((skipBits > 0) ? 1 : 0);
+            data = Arrays.copyOf(data, dl);
         }
 
         public int bitLen() {
@@ -926,6 +1322,19 @@ public class BER {
             }
             sb.append("}");
             return sb.toString();
+        }
+
+        public byte[] toBERBytes() {
+            byte[] r = new byte[data.length + 1];
+            int skip = bitLen % 8;
+            if (skip > 0) {
+                skip = 8 - skip;
+            }
+            r[0] = (byte) (0x07 & skip);
+            for (int i = 0; i < data.length; i++) {
+                r[i + 1] = data[i];
+            }
+            return r;
         }
     }
 
@@ -1100,5 +1509,252 @@ public class BER {
             }
         }
 
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////// object-oriented read/write support
+    //////////////////////////////////////////////////////////////////////////
+    public static class BEREntry {
+
+        byte[] header;
+        byte[] data;
+        List<BEREntry> constructed;
+
+        public BEREntry(int tag, int type, byte[] data) {
+            header = new byte[1 + 5 + 5];
+            int dl = createHeader(header, 0, tag, true, type, data.length);
+            if (dl < header.length) {
+                header = Arrays.copyOf(header, dl);
+            }
+            this.data = data;
+        }
+
+        public BEREntry(Object obj, BERConstructorContext ctx)
+                throws IOException {
+            if (ctx == null) {
+                ctx = new BERConstructorContext();
+            }
+            int tag = ctx.tagFor(obj);
+            boolean primitive = ctx.primitiveFor(obj);
+            int type = ctx.typeFor(obj);
+            header = new byte[15];
+            int hl = createHeader(header, 0, tag, primitive, type);
+            if (primitive) {
+                byte[] dd = ctx.toPayload(header, 0, obj);
+                setLength(header, 0, dd.length);
+            } else {
+                long cl = 0;
+                List objs = ctx.toConstruct(obj);
+                if (objs != null) {
+                    constructed = new ArrayList<BEREntry>();
+                    for (Object o : objs) {
+                        BEREntry child = new BEREntry(o, ctx);
+                        if (child != null) {
+                            constructed.add(child);
+                            if (cl != INDEFINITE_LENGTH) {
+                                long es = getEntrySize(header, 0);
+                                if (es < 0) {
+                                    cl = INDEFINITE_LENGTH;
+                                } else {
+                                    cl += es;
+                                }
+                            }
+                        }
+                    }
+                }
+                setLength(header, 0, cl);
+            }
+
+            hl = getHeaderLength(header, 0);
+            if (hl < header.length) {
+                header = Arrays.copyOf(header, hl);
+            }
+        }
+
+        public BEREntry(InputStream is) throws IOException {
+            header = readHeader(is);
+            //System.out.println("\nDEBUG START: " + this);
+            if (header == null) {
+                header=new byte[]{0};
+                return;
+            }
+            //System.out.println("\n     header: " + Dump.dump(this.header, false, true));
+            long dl = getDataLength();
+            if (isPrimitive()) {
+                data = new byte[(int) dl];
+                readFull(data, 0, data.length, is, "EOF while reading primitive value for " + dumpHeader(header, 0));
+            } else {
+                constructed = new ArrayList<BEREntry>();
+                if (dl == INDEFINITE_LENGTH) {
+                    BEREntry be = new BEREntry(is);
+                    while (be.getType() != CLASS_EOC) {
+                        constructed.add(be);
+                        be = new BEREntry(is);
+                    }
+                } else {
+                    LIS lis = new LIS(is, dl);
+                    BEREntry be = new BEREntry(lis);
+                    while (be.isValidEntry()) {
+                        constructed.add(be);
+                        be = new BEREntry(lis);
+                    }
+                }
+            }
+            //System.out.println("\nDEBUG END  : " + this);
+        }
+
+        public int getTag() {
+            return BER.getTag(header, 0);
+        }
+
+        public boolean isPrimitive() {
+            return BER.isPrimitive(header, 0);
+        }
+
+        public int getType() {
+            return BER.getType(header, 0);
+        }
+
+        public long getDataLength() {
+            return BER.getLength(header, 0);
+        }
+
+        public long getSize() {
+            return getEntrySize(header, 0);
+        }
+
+        public <T> T getValue() throws IOException {
+            return (data == null)
+                    ? (T) NULL
+                    : (T) BER.get(header, 0, new ByteArrayInputStream(data));
+        }
+
+        public <T> T exportValue() throws IOException {
+            if (isPrimitive()) {
+                Object v = getValue();
+                if (v == NULL) {
+                    return null;
+                } else {
+                    return (T) v;
+                }
+            } else {
+                List l = new ArrayList();
+                for (BEREntry be : constructed) {
+                    l.add(be.exportValue());
+                }
+                return (T) l;
+            }
+        }
+
+        public long write(OutputStream os) throws IOException {
+            long c = header.length;
+            os.write(header);
+            if (data != null && data.length > 0) {
+                os.write(data);
+                c += data.length;
+            } else if (constructed != null && !constructed.isEmpty()) {
+                for (BEREntry be : constructed) {
+                    c += be.write(os);
+                }
+            }
+            if (BER.getLength(header, 0) == INDEFINITE_LENGTH) {
+                os.write(EOC);
+                c += EOC.length;
+            }
+            return c;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            sb.append("BEREntry: ");
+            sb.append(dumpHeader(header, 0));
+            if (header == null) {
+                return sb.toString();
+            }
+            if (isPrimitive()) {
+                try {
+                    Object v = getValue();
+                    sb.append("\n  " + ("" + ((v == null) ? "null" : Dump.dump(v, true, true).toString()).replace("\n", "\n  ")));
+                } catch (Throwable th) {
+                    sb.append("\n  ERROR: " + th.toString().replace("\n", "\n  "));
+                }
+            } else if (constructed != null) {
+                sb.append("\n  constructed=" + constructed.size());
+                for (BEREntry be : constructed) {
+                    sb.append("\n    " + be.toString().replace("\n", "\n    "));
+                }
+            }
+            return sb.toString();
+        }
+        
+        public boolean isValidEntry() {
+            return header!=null && header.length>1;
+        }
+    }
+
+    public static class BERConstructorContext {
+
+        public int tagFor(Object value) {
+            return TAG_UNIVERSAL;
+        }
+
+        public int typeFor(Object value) {
+            if (value == null || value == NULL) {
+                return CLASS_NULL;
+            } else if (value instanceof Date) {
+                return CLASS_TIME2;
+            } else if (value instanceof Boolean) {
+                return CLASS_BOOLEAN;
+            } else if (value instanceof Double || value instanceof Float || value instanceof BigDecimal) {
+                return CLASS_REAL;
+            } else if (value instanceof Number || value.getClass().isEnum()) {
+                return CLASS_INTEGER;
+            } else if (value instanceof Collection || value.getClass().isArray()) {
+                return CLASS_SEQUENCE;
+            } else if (value instanceof Map) {
+                return CLASS_SET;
+            } else if (value instanceof BitString) {
+                return CLASS_BIT_STRING;
+            } else if (value instanceof String) {
+                return CLASS_UTF8_STRING;
+            } else {
+                return CLASS_OCTET_STRING;
+            }
+        }
+
+        public boolean primitiveFor(Object value) {
+            int type = typeFor(value);
+            return !(type == CLASS_SEQUENCE || type == CLASS_SET);
+        }
+
+        /**
+         * Returns list of constructed values for the value.
+         *
+         * @param value
+         * @return
+         */
+        public List toConstruct(Object value) throws IOException {
+            if (primitiveFor(value)) {
+                return null;
+            }
+            List l = new ArrayList();
+            if (value instanceof Collection) {
+                l.addAll((Collection) value);
+            } else if (value != null && value.getClass().isArray()) {
+                for (int i = 0; i < Array.getLength(value); i++) {
+                    l.add(Array.get(value, i));
+                }
+            } else if (value instanceof Map) {
+                for (Entry e : ((Map<Object, Object>) value).entrySet()) {
+                    l.add(new Object[]{e.getKey(), e.getValue()});
+                }
+            }
+            return l;
+        }
+
+        public byte[] toPayload(byte[] header, int off, Object value) throws IOException {
+            return createValue(header, off, value);
+        }
     }
 }

@@ -9,11 +9,13 @@ import java.lang.reflect.Type;
 import ssg.serialize.tools.ClassCast;
 
 /**
+ * Reflective cast caster: uses reflection to initialize caster from/to classes
+ * info from its generic declaration to avoid extra coding.
  *
  * @author 000ssg
  */
 public abstract class RCC<F, T> implements ClassCast<F, T> {
-    
+
     int priority = 100;
     Class from;
     Class to;
@@ -69,5 +71,5 @@ public abstract class RCC<F, T> implements ClassCast<F, T> {
             }
         }
     }
-    
+
 }

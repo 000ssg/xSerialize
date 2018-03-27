@@ -178,10 +178,11 @@ public class BASE64InputStream extends FilterInputStream {
                 }
             }
             int lc = Math.min(olen, len);
-            System.arraycopy(obuf, 0, b, off, lc);
+            System.arraycopy(obuf, opos, b, off, lc);
             off += lc;
             len -= lc;
             olen -= lc;
+            opos+=lc;
             c += lc;
         }
         return c;

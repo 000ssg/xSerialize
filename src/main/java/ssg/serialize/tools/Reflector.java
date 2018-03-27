@@ -522,6 +522,57 @@ public class Reflector {
         }
     }
 
+    /**
+     * Returns enumerated value order (in related enumeration class) with 0-base
+     * or -1 if not enum or -2 if access or other reflection error and -3 if no
+     * such value in the class (?!).
+     *
+     * @param enumValue
+     * @return
+     */
+    public static int getEnumOrder(Object enumValue) {
+        if (enumValue == null || !enumValue.getClass().isEnum()) {
+            return -1;
+        }
+        try {
+            Method m = enumValue.getClass().getMethod("values", null);
+            Object[] oo = (Object[]) m.invoke(null);
+            for (int i = 0; i < oo.length; i++) {
+                if (oo[i] == enumValue) {
+                    return i;
+                }
+            }
+            return -3;
+        } catch (Throwable th) {
+            return -2;
+        }
+    }
+
+    /**
+     * Returns enumerated value by its order (in related enumeration class) with
+     * 0-base or null if not enumeration class, order is negative or exceeds
+     * number of enum values.
+     *
+     * @param enumValue
+     * @return
+     */
+    public static <T> T getEnumByOrder(Class enumClass, int order) {
+        if (enumClass == null || !enumClass.isEnum() || order < 0) {
+            return null;
+        }
+        try {
+            Method m = enumClass.getMethod("values", null);
+            Object[] oo = (Object[]) m.invoke(null);
+            if (oo != null && order < oo.length) {
+                return (T) oo[order];
+            } else {
+                return null;
+            }
+        } catch (Throwable th) {
+            return null;
+        }
+    }
+
     public static Class[] generics(Class clazz, Type type) {
         //System.out.println("G: "+type+", cl="+type);
         Type t = type;
@@ -576,7 +627,7 @@ public class Reflector {
             return null;
         }
     }
-    
+
     public static Type[] generics(Object obj) {
         Type t = null;
         if (obj instanceof Field) {

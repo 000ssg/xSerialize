@@ -142,4 +142,108 @@ public class NumberTools {
             return cast(null, numberType);
         }
     }
+
+    /**
+     * Returns number of significant bits.
+     *
+     * @param n
+     * @return
+     */
+    public static int bits(byte n) {
+        int bits = 0;
+        for (int i = 7; i >= 0; i--) {
+            if ((n & (1 << i)) != 0) {
+                bits = i + 1;
+                break;
+            }
+        }
+        return bits;
+    }
+
+    /**
+     * Returns number of significant bits.
+     *
+     * @param n
+     * @return
+     */
+    public static int bits(short n) {
+        int bits = 0;
+        for (int i = 15; i >= 0; i--) {
+            if ((n & (1 << i)) != 0) {
+                bits = i + 1;
+                break;
+            }
+        }
+        return bits;
+    }
+
+    /**
+     * Returns number of significant bits.
+     *
+     * @param n
+     * @return
+     */
+    public static int bits(int n) {
+        int bits = 0;
+        for (int i = 31; i >= 0; i--) {
+            if ((n & (1 << i)) != 0) {
+                bits = i + 1;
+                break;
+            }
+        }
+        return bits;
+    }
+
+    /**
+     * Returns number of significant bits.
+     *
+     * @param n
+     * @return
+     */
+    public static int bits(long n) {
+        int bits = 0;
+        for (int i = 63; i >= 0; i--) {
+            if ((n & (1L << i)) != 0) {
+                bits = i + 1;
+                break;
+            }
+        }
+        return bits;
+    }
+
+    /**
+     * Returns number of significant bits.
+     *
+     * @param n
+     * @return
+     */
+    public static int bits(BigInteger n) {
+        return n.bitLength();
+    }
+
+    /**
+     * Returns number of significant bits.
+     *
+     * @param n
+     * @return
+     */
+    public static int bits(Number n) {
+        if (n == null) {
+            return -1;
+        }
+        Class cl = n.getClass();
+        if (cl == Byte.class) {
+            return bits(n.byteValue());
+        } else if (cl == Short.class) {
+            return bits(n.shortValue());
+        } else if (cl == Integer.class) {
+            return bits(n.intValue());
+        } else if (cl == Long.class) {
+            return bits(n.longValue());
+        } else if (cl == BigInteger.class) {
+            return bits((BigInteger) n);
+        } else {
+            return 0;
+        }
+    }
 }

@@ -5,6 +5,8 @@
  */
 package ssg.serialize.impl;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.util.Stack;
@@ -110,11 +112,56 @@ public class FunctionalASN1 {
         }
     }
 
+    public static void mainBEREntry(String[] args) throws Exception {
+        File ff = new File("src/test/resources/der");
+        for (File f : ff.listFiles()) {
+            if (f.isFile() && (f.getName().toLowerCase().endsWith(".der")
+                    || f.getName().toLowerCase().endsWith(".crt")
+                    || f.getName().toLowerCase().endsWith(".cer"))) {
+                System.out.println("\nTest " + f);
+                InputStream is = f.toURI().toURL().openStream();
+                if (is.read() == '-') {
+                    // assume it is Base64 encoded content within "\r\n" ... "\r\n-" section
+                    is = new BASE64InputStream(f.toURI().toURL().openStream(), true);
+                } else {
+                    // just re-open...
+                    is.close();
+                    is = f.toURI().toURL().openStream();
+                }
+
+                BER.BEREntry be = new BER.BEREntry(is);
+                System.out.println("\nBER structure:\n" + be);
+                System.out.println("Exported     :\n" + Dump.dump(be.exportValue(), true, false));
+
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                be.write(baos);
+
+                System.out.println("  Written " + baos.size() + ", originally " + f.length());
+
+                try {
+                    BER.BEREntry be2 = new BER.BEREntry(new ByteArrayInputStream(baos.toByteArray()));
+                    String s1 = be.toString();
+                    String s2 = be2.toString();
+                    System.out.println("  Originally restored " + ((s1.equals(s2) ? " == " : " <> ")) + " re-restored");
+                    int a = 0;
+                } catch (Throwable th) {
+                    int a = 0;
+                }
+            }
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         System.out.println("\n---------------------------------------------"
                 + "\nTest ASN1 (BER) serializer."
                 + "\n---------------------------------------------"
         );
+
+        System.out.println("\n--------------------------- BER.OID");
+        String oids = "1.2.840.113549.1.12.1.3";
+        BER.OID oid = new BER.OID(oids);
+        System.out.println(oids + "\n" + oid);
+
         try {
             System.out.println("\n--------------------------- BER");
             mainBER(args);
@@ -123,6 +170,11 @@ public class FunctionalASN1 {
         try {
             System.out.println("\n--------------------------- ASN1Serializer");
             mainASN1(args);
+        } catch (Throwable th) {
+        }
+        try {
+            System.out.println("\n--------------------------- BEREntry");
+            mainBEREntry(args);
         } catch (Throwable th) {
         }
     }
